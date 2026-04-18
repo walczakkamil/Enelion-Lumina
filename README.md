@@ -108,4 +108,4 @@ Jeśli wystąpi problem (np. brak połączenia, timeout, błąd logowania), zost
 
 ## 📄 Licencja
 
-MIT
+GNU General Public License v3.0
