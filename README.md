@@ -110,22 +110,23 @@ Email sent to: user@example.com
 
 ## 🔌 Charger Configuration
 
-Edit the `CHARGERS` list in the script:
+Edit the `chargers.ini` file, and configure as many chargers as you want:
 
 ```python
-CHARGERS = [
-    {
-        "id": 65,
-        "ip": 8,
-        "username": "admin",
-        "password": "admin",
-        "email": "user@example.com"
-    },
-]
+[charger_1]
+id = 65
+ip = 8
+username = admin
+password = admin
+email = user@mails.com
 ```
 
+* `charger_1` → name of charger on the list
+* `id` → parking place or charger number
 * `ip` → last octet (used with `BASE_IP_PREFIX`)
-* `email` → recipient for individual alerts
+* `username` → web interface username
+* `password` → web interface password 
+* `email` → recipient for individual alerts 
 
 ---
 
