@@ -46,6 +46,25 @@ user = your_email@gmail.com
 app_password = your_app_password
 summary_email = summary@example.com
 ```
+### 2. Create `chargers.ini`
+
+```ini
+[charger_1]
+id = 65
+ip = 8
+username = admin
+password = admin
+email = user@mails.com
+
+[charger_2]
+id = 66
+ip = 9
+username = admin
+password = admin
+email = other@mails.com
+
+```
+
 
 ⚠️ **Important:**
 

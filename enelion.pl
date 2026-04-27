@@ -11,10 +11,31 @@ BASE_URL_TEMPLATE = "http://{ip}/api"
 LOGIN_ENDPOINT = "/users/login"
 STATUS_ENDPOINT = "/charger/charger"
 
-# Chargers list
-CHARGERS = [
-    {"id": 65, "ip": 8, "username": "admin", "password": "admin", "email": "user@mail.dot.com"},
-]
+
+def load_chargers_config(config_path="chargers.ini"):
+    config = configparser.ConfigParser()
+
+    if not config.read(config_path):
+        raise FileNotFoundError(f"Chargers config file not found: {config_path}")
+
+    chargers = []
+
+    for section in config.sections():
+        try:
+            charger = {
+                "id": int(config[section]["id"]),
+                "ip": int(config[section]["ip"]),
+                "username": config[section]["username"],
+                "password": config[section]["password"],
+                "email": config[section].get("email", "")
+            }
+            chargers.append(charger)
+        except KeyError as e:
+            raise Exception(f"Missing key in section [{section}]: {e}")
+        except ValueError as e:
+            raise Exception(f"Invalid value in section [{section}]: {e}")
+
+    return chargers
 
 
 def load_email_config(config_path="gmail.ini"):
@@ -107,12 +128,11 @@ def send_email(gmail_user, gmail_password, recipient, subject, body):
 
 def main():
     print("\n--- START CHARGER READ ---\n")
-
+    chargers = load_chargers_config()
     gmail_user, gmail_password, summary_email = load_email_config()
-
     summary_report = "Energy usage summary:\n\n"
 
-    for charger in CHARGERS:
+    for charger in chargers:
         usage = get_charger_data(
             charger_id=charger["id"],
             ip=charger["ip"],
