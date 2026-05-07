@@ -3,6 +3,7 @@ import smtplib
 import time
 import configparser
 import os
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -10,6 +11,25 @@ BASE_IP_PREFIX = "192.168.8."
 BASE_URL_TEMPLATE = "http://{ip}/api"
 LOGIN_ENDPOINT = "/users/login"
 STATUS_ENDPOINT = "/charger/charger"
+
+logger = logging.getLogger("DynamicLogger")
+logger.setLevel(logging.INFO)
+FORMATTER = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+
+def log_info(charger, message, level=logging.INFO):
+    os.makedirs("logs", exist_ok=True)
+    log_filename = os.path.join("logs", f"log_{charger}.log")
+    #log_filename = f"log_{charger}.log"
+    file_handler = logging.FileHandler(log_filename, mode='a', encoding='utf-8')
+    file_handler.setFormatter(FORMATTER)
+    logger.addHandler(file_handler)
+
+    try:
+        logger.log(level, message)
+    finally:
+        logger.removeHandler(file_handler)
+        file_handler.close()
 
 
 def load_chargers_config(config_path="chargers.ini"):
@@ -157,6 +177,8 @@ def main():
                 individual_message
             )
 
+            log_info(charger['id'], f"Current usage: {usage:.2f} kWh")
+
         else:
             summary_report += f"Charger: {charger['id']} | READ ERROR\n"
             send_email(
@@ -166,6 +188,8 @@ def main():
                 "Charger status",
                 "Charger read error..."
             )
+            log_info(charger['id'], "READ ERROR", level=logging.ERROR)
+
     send_email(
         gmail_user,
         gmail_password,
