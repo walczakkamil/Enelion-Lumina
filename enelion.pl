@@ -4,6 +4,8 @@ import time
 import configparser
 import os
 import logging
+import sqlite3
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -15,6 +17,41 @@ STATUS_ENDPOINT = "/charger/charger"
 logger = logging.getLogger("DynamicLogger")
 logger.setLevel(logging.INFO)
 FORMATTER = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+
+def init_db():
+    conn = sqlite3.connect('chargers_data.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS energy_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            charger_id TEXT,
+            timestamp DATETIME,
+            usage_kwh REAL,
+            status TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+def save_to_db(charger_id, usage_kwh, status="OK"):
+    try:
+        conn = sqlite3.connect('chargers_data.db')
+        cursor = conn.cursor()
+
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        cursor.execute('''
+            INSERT INTO energy_logs (charger_id, timestamp, usage_kwh, status)
+            VALUES (?, ?, ?, ?)
+        ''', (charger_id, current_time, usage_kwh, status))
+
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
 
 
 def log_info(charger, message, level=logging.INFO):
@@ -44,7 +81,7 @@ def load_chargers_config(config_path="chargers.ini"):
         try:
             charger = {
                 "id": int(config[section]["id"]),
-                "ip": int(config[section]["ip"]),
+                "ip": config[section]["ip"],
                 "username": config[section]["username"],
                 "password": config[section]["password"],
                 "email": config[section].get("email", "")
@@ -75,8 +112,7 @@ def load_email_config(config_path="gmail.ini"):
 
 
 def get_charger_data(charger_id, ip, username, password, retries=2):
-    ip_address = f"{BASE_IP_PREFIX}{ip}"
-    base_url = BASE_URL_TEMPLATE.format(ip=ip_address)
+    base_url = BASE_URL_TEMPLATE.format(ip=ip)
     login_url = base_url + LOGIN_ENDPOINT
     status_url = base_url + STATUS_ENDPOINT
 
@@ -88,7 +124,7 @@ def get_charger_data(charger_id, ip, username, password, retries=2):
                     "password": password
                 }
 
-                print(f"[Charger {charger_id}] Connecting to {ip_address} (attempt {attempt + 1})...")
+                print(f"[Charger {charger_id}] Connecting to {ip} (attempt {attempt + 1})...")
 
                 login_response = session.post(login_url, json=payload, timeout=10)
                 login_response.raise_for_status()
@@ -148,6 +184,7 @@ def send_email(gmail_user, gmail_password, recipient, subject, body):
 
 def main():
     print("\n--- START CHARGER READ ---\n")
+    init_db()
     chargers = load_chargers_config()
     gmail_user, gmail_password, summary_email = load_email_config()
     summary_report = "Energy usage summary:\n\n"
@@ -163,12 +200,10 @@ def main():
         if usage is not None:
             record = f"Charger: {charger['id']} | Usage: {usage:.2f} kWh"
             summary_report += record + "\n"
-
             individual_message = (
                 f"Hello,\n\n"
                 f"Your charger ({charger['id']}) usage is {usage:.2f} kWh."
             )
-
             send_email(
                 gmail_user,
                 gmail_password,
@@ -176,9 +211,8 @@ def main():
                 "Charger status",
                 individual_message
             )
-
+            save_to_db(charger['id'], usage, "SUCCESS")
             log_info(charger['id'], f"Current usage: {usage:.2f} kWh")
-
         else:
             summary_report += f"Charger: {charger['id']} | READ ERROR\n"
             send_email(
@@ -188,6 +222,7 @@ def main():
                 "Charger status",
                 "Charger read error..."
             )
+            save_to_db(charger['id'], 0, "READ_ERROR")
             log_info(charger['id'], "READ ERROR", level=logging.ERROR)
 
     send_email(
