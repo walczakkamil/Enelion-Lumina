@@ -1,0 +1,227 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "ad52lfh",
+    "namespace": "default",
+    "uid": "989a9523-340a-483f-ac64-113b53c9affe",
+    "resourceVersion": "1778178525393015",
+    "generation": 9,
+    "creationTimestamp": "2026-05-07T15:52:41Z",
+    "labels": {
+      "grafana.app/deprecatedInternalID": "3278506413953024"
+    },
+    "annotations": {
+      "grafana.app/createdBy": "user:dflcvitlqvm68b",
+      "grafana.app/folder": "",
+      "grafana.app/saved-from-ui": "Grafana v13.0.1 (a100054f)",
+      "grafana.app/updatedBy": "user:dflcvitlqvm68b",
+      "grafana.app/updatedTimestamp": "2026-05-07T18:28:45Z"
+    }
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "query": {
+            "kind": "DataQuery",
+            "group": "grafana",
+            "version": "v0",
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "spec": {}
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "builtIn": true
+        }
+      }
+    ],
+    "cursorSync": "Off",
+    "editable": true,
+    "elements": {
+      "panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Power usage",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "frser-sqlite-datasource",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "aflcwfrzj9kowc"
+                      },
+                      "spec": {
+                        "queryText": "SELECT\n  charger_id,\n  CASE \n    WHEN status = 'READ_ERROR' THEN 'ERROR' \n    ELSE usage_kwh \n  END AS display_value,\n  status\nFROM energy_logs\nWHERE id IN (SELECT MAX(id) FROM energy_logs GROUP BY charger_id)\nORDER BY CAST(charger_id AS INTEGER) ASC",
+                        "queryType": "table",
+                        "rawQueryText": "SELECT\n  charger_id,\n  CASE \n    WHEN status = 'READ_ERROR' THEN 'ERROR' \n    ELSE usage_kwh \n  END AS display_value,\n  status\nFROM energy_logs\nWHERE id IN (SELECT MAX(id) FROM energy_logs GROUP BY charger_id)\nORDER BY CAST(charger_id AS INTEGER) ASC",
+                        "timeColumns": [
+                          "time",
+                          "ts"
+                        ]
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "status": true,
+                        "timestamp": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {},
+                      "orderByMode": "manual",
+                      "renameByName": {}
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "13.0.1",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "/^display_value$/",
+                  "values": true
+                },
+                "showPercentChange": false,
+                "textMode": "value_and_name",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "displayName": "${__field.labels.charger_id}",
+                  "unit": "kwatth",
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "READ_ERROR": {
+                          "text": "READ ERROR",
+                          "color": "dark-red",
+                          "index": 1
+                        },
+                        "SUCCESS": {
+                          "text": "OK",
+                          "color": "dark-green",
+                          "index": 0
+                        }
+                      }
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "dark-red"
+                      },
+                      {
+                        "value": 0.01,
+                        "color": "dark-green"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "fieldMinMax": false
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 15,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [],
+    "liveNow": false,
+    "preload": false,
+    "tags": [],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-6h",
+      "to": "now",
+      "autoRefresh": "",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "Chargers",
+    "variables": [],
+    "preferences": {
+      "layout": {
+        "kind": "GridLayout",
+        "spec": {
+          "items": []
+        }
+      }
+    }
+  }
+}
