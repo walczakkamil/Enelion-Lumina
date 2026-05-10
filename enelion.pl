@@ -5,6 +5,7 @@ import configparser
 import os
 import logging
 import sqlite3
+import sys
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -183,57 +184,62 @@ def send_email(gmail_user, gmail_password, recipient, subject, body):
 
 
 def main():
-    print("\n--- START CHARGER READ ---\n")
+    now = datetime.now()
+    is_first_of_month = (now.day == 1)
+    is_first_of_week = (now.weekday() == 0) # Monday
+
+    active_schedules = ["daily"]
+    if is_first_of_week:
+        active_schedules.append("weekly")
+    if is_first_of_month:
+        active_schedules.append("monthly")
+
+    manual_collect = len(sys.argv) > 1 and sys.argv[1] == "collect"
+
+    print(f"Active reports today: {active_schedules}")
+
     init_db()
-    chargers = load_chargers_config()
-    gmail_user, gmail_password, summary_email = load_email_config()
-    summary_report = "Energy usage summary:\n\n"
+    try:
+        chargers = load_chargers_config()
+        gmail_user, gmail_password, summary_email = load_email_config()
+    except Exception as e:
+        print(f"Config error: {e}")
+        return
+
+    summary_report = f"Global Report - {now.strftime('%Y-%m-%d')}\n"
+    summary_report += "-----------------------------------\n"
 
     for charger in chargers:
         usage = get_charger_data(
-            charger_id=charger["id"],
-            ip=charger["ip"],
-            username=charger["username"],
-            password=charger["password"]
+            charger["id"], charger["ip"],
+            charger["username"], charger["password"]
         )
 
         if usage is not None:
-            record = f"Charger: {charger['id']} | Usage: {usage:.2f} kWh"
-            summary_report += record + "\n"
-            individual_message = (
-                f"Hello,\n\n"
-                f"Your charger ({charger['id']}) usage is {usage:.2f} kWh."
-            )
-            send_email(
-                gmail_user,
-                gmail_password,
-                charger["email"],
-                "Charger status",
-                individual_message
-            )
             save_to_db(charger['id'], usage, "SUCCESS")
-            log_info(charger['id'], f"Current usage: {usage:.2f} kWh")
+            log_info(charger['id'], f"Usage recorded: {usage:.2f} kWh")
+
+            user_pref = charger.get("report_type", "daily").lower()
+            recipient = charger.get("email")
+
+            if not manual_collect and recipient and user_pref in active_schedules:
+                subject = f"Charger {charger['id']} - {user_pref.capitalize()} Report"
+                body = f"Hello,\n\nYour {user_pref} energy report: {usage:.2f} kWh."
+                send_email(gmail_user, gmail_password, recipient, subject, body)
+
+            summary_report += f"Charger {charger['id']}: {usage:.2f} kWh (Pref: {user_pref})\n"
         else:
-            summary_report += f"Charger: {charger['id']} | READ ERROR\n"
-            send_email(
-                gmail_user,
-                gmail_password,
-                charger["email"],
-                "Charger status",
-                "Charger read error..."
-            )
             save_to_db(charger['id'], 0, "READ_ERROR")
-            log_info(charger['id'], "READ ERROR", level=logging.ERROR)
+            summary_report += f"Charger {charger['id']}: READ ERROR\n"
 
-    send_email(
-        gmail_user,
-        gmail_password,
-        summary_email,
-        "Chargers summary report",
-        summary_report
-    )
+    if not manual_collect and is_first_of_week and is_first_of_month:
+        print("Sending global summary...")
+        send_email(
+            gmail_user, gmail_password, summary_email,
+            "GLOBAL Monthly & Weekly Summary", summary_report
+        )
 
-    print("\n--- END ---\n")
+    print("\n--- PROCESS COMPLETED ---")
 
 
 if __name__ == "__main__":
