@@ -218,10 +218,6 @@ def main():
         user_pref = charger.get("report_type", "daily").lower()
         recipient = charger.get("email")
 
-        print("Charger: " + str(charger["id"]))
-        print("Schedule: " + user_pref)
-        print("E-mail: " + recipient)
-
         if usage is not None:
             save_to_db(charger['id'], usage, "SUCCESS")
             log_info(charger['id'], f"Usage recorded: {usage:.2f} kWh")
