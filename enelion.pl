@@ -190,6 +190,22 @@ def get_charger_data(charger_id, ip, username, password, retries=2):
                 return None
 
 
+def get_previous_total_usage(charger_id):
+    try:
+        conn = sqlite3.connect('chargers_data.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT usage_kwh FROM energy_logs
+            WHERE charger_id = ? AND status = 'SUCCESS'
+            ORDER BY timestamp DESC LIMIT 1
+        ''', (str(charger_id),))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else None
+    except sqlite3.Error:
+        return None
+
+
 def send_email(gmail_user, gmail_password, recipient, subject, body):
     if not recipient:
         print("Skipping email - empty recipient")
@@ -253,10 +269,24 @@ def main():
         if usage is not None:
             save_to_db(charger['id'], usage, "SUCCESS")
             log_info(charger['id'], f"Usage recorded: {usage:.2f} kWh")
+            prev_usage = get_previous_total_usage(charger['id'])
 
             if not manual_collect and recipient and user_pref in active_schedules:
                 subject = f"Charger {charger['id']} - {user_pref.capitalize()} Report"
-                body = f"Hello,\n\nYour {user_pref} energy report: {usage:.2f} kWh."
+
+                if prev_usage is not None:
+                    delta = usage - prev_usage
+                    delta_text = f"Energy consumed since last report: {delta:.2f} kWh."
+                else:
+                    delta_text = "Energy consumed since last report: First reading, no delta available."
+                body = (
+                    f"Hello,\n\n"
+                    f"Your {user_pref} energy report:\n"
+                    f"- Current meter state: {usage:.2f} kWh\n"
+                    f"- {delta_text}\n\n"
+                    f"Best regards,\nEnelion Lumina System"
+                )
+
                 send_email(gmail_user, gmail_password, recipient, subject, body)
 
             summary_report += f"Charger {charger['id']}: {usage:.2f} kWh (Pref: {user_pref})\n"
