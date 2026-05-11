@@ -85,7 +85,8 @@ def load_chargers_config(config_path="chargers.ini"):
                 "ip": config[section]["ip"],
                 "username": config[section]["username"],
                 "password": config[section]["password"],
-                "email": config[section].get("email", "")
+                "email": config[section].get("email", ""),
+                "report_type": config[section].get("report_type", "daily")
             }
             chargers.append(charger)
         except KeyError as e:
@@ -214,13 +215,16 @@ def main():
             charger["id"], charger["ip"],
             charger["username"], charger["password"]
         )
+        user_pref = charger.get("report_type", "daily").lower()
+        recipient = charger.get("email")
+
+        print("Charger: " + str(charger["id"]))
+        print("Schedule: " + user_pref)
+        print("E-mail: " + recipient)
 
         if usage is not None:
             save_to_db(charger['id'], usage, "SUCCESS")
             log_info(charger['id'], f"Usage recorded: {usage:.2f} kWh")
-
-            user_pref = charger.get("report_type", "daily").lower()
-            recipient = charger.get("email")
 
             if not manual_collect and recipient and user_pref in active_schedules:
                 subject = f"Charger {charger['id']} - {user_pref.capitalize()} Report"
@@ -231,6 +235,12 @@ def main():
         else:
             save_to_db(charger['id'], 0, "READ_ERROR")
             summary_report += f"Charger {charger['id']}: READ ERROR\n"
+
+            log_info(charger['id'], f"Connection error with {charger['ip']}", level=logging.ERROR)
+            if not manual_collect and recipient and user_pref in active_schedules:
+                subject = f"Charger {charger['id']} - ERROR"
+                error_msg = f"Hello,\n\nWe couldn't reach your charger at {charger['ip']}. Please check connection."
+                send_email(gmail_user, gmail_password, recipient, subject, error_msg)
 
     if not manual_collect and is_first_of_week and is_first_of_month:
         print("Sending global summary...")
