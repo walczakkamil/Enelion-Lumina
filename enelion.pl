@@ -1,14 +1,17 @@
-import requests
-import smtplib
-import time
 import configparser
-import os
+import glob
 import logging
+import os
+import shutil
 import sqlite3
+import smtplib
 import sys
+import time
 from datetime import datetime
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+import requests
 
 BASE_IP_PREFIX = "192.168.8."
 BASE_URL_TEMPLATE = "http://{ip}/api"
@@ -34,6 +37,31 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+
+
+def backup_and_maintenance():
+    backup_dir = "backups"
+    db_file = "chargers_data.db"
+    os.makedirs(backup_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y-%m-%d')
+    backup_path = os.path.join(backup_dir, f"backup_{timestamp}.db")
+
+    try:
+        conn = sqlite3.connect(db_file)
+        conn.execute("VACUUM")
+        conn.close()
+
+        shutil.copy2(db_file, backup_path)
+        print(f"Backup created: {backup_path}")
+    except Exception as e:
+        print(f"Backup error: {e}")
+
+    backups = sorted(glob.glob(os.path.join(backup_dir, "backup_*.db")))
+    while len(backups) > 3:
+        oldest_backup = backups.pop(0)
+        os.remove(oldest_backup)
+        print(f"Removed old backup: {oldest_backup}")
 
 
 def save_to_db(charger_id, usage_kwh, status="OK"):
@@ -188,6 +216,10 @@ def main():
     now = datetime.now()
     is_first_of_month = (now.day == 1)
     is_first_of_week = (now.weekday() == 0) # Monday
+
+    if is_first_of_month:
+        print("Starting monthly maintenance...")
+        backup_and_maintenance()
 
     active_schedules = ["daily"]
     if is_first_of_week:
