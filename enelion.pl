@@ -190,19 +190,22 @@ def get_charger_data(charger_id, ip, username, password, retries=2):
                 return None
 
 
-def get_previous_total_usage(charger_id):
+def get_previous_total_usage(charger_id, lookback_sql):
     try:
         conn = sqlite3.connect('chargers_data.db')
         cursor = conn.cursor()
-        cursor.execute('''
+        query = f'''
             SELECT usage_kwh FROM energy_logs
             WHERE charger_id = ? AND status = 'SUCCESS'
-            ORDER BY timestamp DESC LIMIT 1
-        ''', (str(charger_id),))
+            ORDER BY ABS(strftime('%s', timestamp) - strftime('%s', 'now', {lookback_sql}))
+            LIMIT 1
+        '''
+        cursor.execute(query, (str(charger_id),))
         result = cursor.fetchone()
         conn.close()
         return result[0] if result else None
-    except sqlite3.Error:
+    except sqlite3.Error as e:
+        print(f"SQL Error: {e}")
         return None
 
 
@@ -266,19 +269,29 @@ def main():
         user_pref = charger.get("report_type", "daily").lower()
         recipient = charger.get("email")
 
+        if user_pref == "daily":
+            lookback_sql = "'-1 day'"
+        elif user_pref == "weekly":
+            lookback_sql = "'-7 days'"
+        elif user_pref == "monthly":
+            lookback_sql = "'start of month', '-1 month'"
+        else:
+            lookback_sql = "'-1 day'"
+
         if usage is not None:
+            days_map = {"daily": 1, "weekly": 7, "monthly": 30}
+            historical_usage = get_previous_total_usage(charger['id'], lookback_sql)
             save_to_db(charger['id'], usage, "SUCCESS")
             log_info(charger['id'], f"Usage recorded: {usage:.2f} kWh")
-            prev_usage = get_previous_total_usage(charger['id'])
 
             if not manual_collect and recipient and user_pref in active_schedules:
                 subject = f"Charger {charger['id']} - {user_pref.capitalize()} Report"
 
-                if prev_usage is not None:
+                if historical_usage is not None:
                     delta = usage - prev_usage
-                    delta_text = f"Energy consumed since last report: {delta:.2f} kWh."
+                    delta_text = f"Energy consumed in the last {user_pref} period: {delta:.2f} kWh."
                 else:
-                    delta_text = "Energy consumed since last report: First reading, no delta available."
+                    delta_text = f"Energy consumed: Not enough historical data to calculate {user_pref} delta."
                 body = (
                     f"Hello,\n\n"
                     f"Your {user_pref} energy report:\n"
